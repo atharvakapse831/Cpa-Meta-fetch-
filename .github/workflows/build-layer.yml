@@ -1,0 +1,45 @@
+name: Build and Publish yt-dlp Layer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-layer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build yt-dlp layer
+        run: |
+          mkdir -p layer/python
+          pip3 install yt-dlp -t layer/python/
+          cd layer
+          zip -r ../yt-dlp-layer.zip python
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Publish Lambda Layer
+        id: publish_layer
+        run: |
+          LAYER_ARN=$(aws lambda publish-layer-version \
+            --layer-name yt-dlp-layer \
+            --zip-file fileb://yt-dlp-layer.zip \
+            --compatible-runtimes python3.11 \
+            --compatible-architectures x86_64 \
+            --query 'LayerVersionArn' --output text)
+          echo "Layer published: $LAYER_ARN"
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
+      - name: Attach layer to cpa_meta_fetch
+        run: |
+          # Get current layers (the Web Adapter layer must stay attached too)
+          CURRENT_LAYERS=$(aws lambda get-function-configuration \
+            --function-name cpa_meta_fetch \
+            --query 'Layers[*].Arn' --output text)
+
+          aws lambda update-function-configuration \
+            --function-name cpa_meta_fetch \
+            --layers $CURRENT_LAYERS ${{ steps.publish_layer.outputs.layer_arn }}
