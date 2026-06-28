@@ -19,8 +19,12 @@ jobs:
       - name: Install production dependencies
         run: npm install --omit=dev
 
-      - name: Make run.sh executable
-        run: chmod +x run.sh
+      - name: Ensure bootstrap exists and is executable
+        run: |
+          if [ -f run.sh ] && [ ! -f bootstrap ]; then
+            mv run.sh bootstrap
+          fi
+          chmod +x bootstrap
 
       - name: Zip package
         run: zip -r function.zip . -x ".git/*" ".github/*" "*.md"
