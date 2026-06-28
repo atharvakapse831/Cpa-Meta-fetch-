@@ -1,28 +1,39 @@
-FROM node:18-slim
+name: Deploy to Lambda
 
-# Install Python + pip for yt-dlp, plus ffmpeg (yt-dlp uses it for merging streams)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    ffmpeg \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+on:
+  push:
+    branches: [main]
 
-# Install yt-dlp
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-WORKDIR /app
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-# Install Node deps first (better layer caching)
-COPY package.json yarn.lock* package-lock.json* ./
-RUN if [ -f yarn.lock ]; then yarn install --production; else npm install --omit=dev; fi
+      - name: Install production dependencies
+        run: npm install --omit=dev
 
-# Copy source
-COPY . .
+      - name: Make run.sh executable
+        run: chmod +x run.sh
 
-ENV NODE_ENV=production
-ENV PORT=4001
+      - name: Zip package
+        run: zip -r function.zip . -x ".git/*" ".github/*" "*.md"
 
-EXPOSE 4001
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
 
-CMD ["node", "src/server.js"]
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name cpa_meta_fetch \
+            --zip-file fileb://function.zip
