@@ -1,0 +1,39 @@
+name: Deploy to Lambda
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install production dependencies
+        run: npm install --omit=dev
+
+      - name: Make run.sh executable
+        run: chmod +x run.sh
+
+      - name: Zip package
+        run: zip -r function.zip . -x ".git/*" ".github/*" "*.md"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name cpa-meta-fetch \
+            --zip-file fileb://function.zip
