@@ -35,5 +35,5 @@ jobs:
       - name: Update Lambda function code
         run: |
           aws lambda update-function-code \
-            --function-name cpa-meta-fetch \
+            --function-name cpa_meta_fetch \
             --zip-file fileb://function.zip
