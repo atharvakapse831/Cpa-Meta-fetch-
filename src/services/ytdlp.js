@@ -3,17 +3,18 @@ const { execFile } = require('child_process');
 function runYtDlp(args) {
   return new Promise((resolve, reject) => {
     const bin = process.env.YTDLP_PATH || 'yt-dlp';
-    execFile(bin, args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+
+    const cookieArgs = process.env.IG_COOKIES_PATH
+      ? ['--cookies', process.env.IG_COOKIES_PATH]
+      : [];
+
+    execFile(bin, [...cookieArgs, ...args], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) return reject(new Error(stderr || err.message));
       resolve(stdout.trim());
     });
   });
 }
 
-/**
- * Extract full metadata for a reel URL.
- * Returns normalised object.
- */
 async function extractInfo(url) {
   const raw = await runYtDlp(['--dump-json', '--no-playlist', url]);
   const d   = JSON.parse(raw);
@@ -34,9 +35,6 @@ async function extractInfo(url) {
   };
 }
 
-/**
- * Return just the raw thumbnail URL from metadata.
- */
 async function getRawThumbnailUrl(url) {
   const info = await extractInfo(url);
   if (!info.thumbnail) throw new Error('No thumbnail found in metadata');
