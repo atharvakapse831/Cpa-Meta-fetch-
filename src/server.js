@@ -1,4 +1,17 @@
 require('dotenv').config();
+
+// ── Instagram cookie auth (decode from env var into a local file) ──────────
+const fs = require('fs');
+const path = require('path');
+
+if (process.env.IG_COOKIES_B64) {
+  const cookiesPath = path.join('/tmp', 'ig_cookies.txt');
+  fs.writeFileSync(cookiesPath, Buffer.from(process.env.IG_COOKIES_B64, 'base64').toString('utf-8'));
+  process.env.IG_COOKIES_PATH = cookiesPath;
+  console.log('Instagram cookies loaded');
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
 const cors    = require('cors');
 const rateLimit = require('express-rate-limit');
